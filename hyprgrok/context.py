@@ -152,11 +152,68 @@ def hyprctl_json(args: list[str]) -> Any | None:
         return None
 
 
-def get_active_window() -> dict[str, Any] | None:
-    data = hyprctl_json(["activewindow"])
-    if isinstance(data, dict) and data.get("address"):
-        return data
-    return None
+def is_hyprgrok_window(window: dict[str, Any] | None) -> bool:
+    """True for HyprGrok panel / its chrome app window (should never be 'focused context')."""
+    if not window:
+        return False
+    title = str(window.get("title") or "")
+    initial = str(window.get("initialTitle") or "")
+    klass = str(window.get("class") or "")
+    initial_class = str(window.get("initialClass") or "")
+    combined = f"{title}\n{initial}\n{klass}\n{initial_class}".lower()
+    if "hyprgrok" in combined:
+        return True
+    # Chrome/Chromium --app=http://127.0.0.1:PORT/ often titles the tab "HyprGrok"
+    if title.strip() == "HyprGrok" or initial.strip() == "HyprGrok":
+        return True
+    # App-mode class we set on launch
+    if "hyprgrok-panel" in combined:
+        return True
+    return False
+
+
+def get_clients() -> list[dict[str, Any]]:
+    data = hyprctl_json(["clients"])
+    if isinstance(data, list):
+        return [c for c in data if isinstance(c, dict) and c.get("address")]
+    return []
+
+
+def get_active_window(*, skip_hyprgrok: bool = True) -> dict[str, Any] | None:
+    """Return the window that should drive desktop context.
+
+    When the HyprGrok panel is focused (e.g. user clicked Refresh), Hyprland's
+    ``activewindow`` is the panel itself. Prefer the previously focused client
+    via ``focusHistoryID`` so context reflects the user's real work window.
+    """
+    active = hyprctl_json(["activewindow"])
+    if isinstance(active, dict) and active.get("address"):
+        if not skip_hyprgrok or not is_hyprgrok_window(active):
+            return active
+
+    clients = get_clients()
+    if not clients:
+        return active if isinstance(active, dict) and active.get("address") else None
+
+    def focus_key(c: dict[str, Any]) -> int:
+        try:
+            return int(c.get("focusHistoryID", 9999))
+        except (TypeError, ValueError):
+            return 9999
+
+    # focusHistoryID 0 = currently focused, 1 = previous, …
+    ranked = sorted(clients, key=focus_key)
+    for client in ranked:
+        if skip_hyprgrok and is_hyprgrok_window(client):
+            continue
+        # Prefer mapped, non-hidden windows on a real workspace
+        if client.get("hidden"):
+            continue
+        if client.get("mapped") is False:
+            continue
+        return client
+
+    return active if isinstance(active, dict) and active.get("address") else None
 
 
 def classify_window(window_class: str, title: str = "") -> str:
@@ -292,6 +349,7 @@ def take_screenshot(
     *,
     region: list[int] | None = None,
     active_window: bool = True,
+    window: dict[str, Any] | None = None,
 ) -> str | None:
     if not shutil.which("grim"):
         return None
@@ -305,10 +363,10 @@ def take_screenshot(
         if w > 0 and h > 0:
             geometry = f"{x},{y} {w}x{h}"
     elif active_window:
-        window = get_active_window()
-        if window:
-            at = window.get("at") or [0, 0]
-            size = window.get("size") or [0, 0]
+        win = window if window is not None else get_active_window(skip_hyprgrok=True)
+        if win:
+            at = win.get("at") or [0, 0]
+            size = win.get("size") or [0, 0]
             try:
                 x, y = int(at[0]), int(at[1])
                 w, h = int(size[0]), int(size[1])
@@ -345,13 +403,18 @@ def gather_context(
     active_window_only: bool = True,
 ) -> DesktopContext:
     ctx = DesktopContext()
-    window = get_active_window()
+    window = get_active_window(skip_hyprgrok=True)
     if not window:
         ctx.notes.append("hyprctl activewindow unavailable (not on Hyprland?)")
         ctx.cwd = os.getcwd()
         ctx.project_root = find_project_root(ctx.cwd)
         ctx.project_name = Path(ctx.project_root).name if ctx.project_root else None
         return ctx
+
+    # If we skipped the panel, note it so the UI is clear
+    raw_active = hyprctl_json(["activewindow"])
+    if isinstance(raw_active, dict) and is_hyprgrok_window(raw_active):
+        ctx.notes.append("ignored HyprGrok panel; using previously focused window")
 
     ctx.window_title = str(window.get("title") or "")
     ctx.window_class = str(window.get("class") or window.get("initialClass") or "")
@@ -419,6 +482,7 @@ def gather_context(
             screenshot_dir,
             region=region,
             active_window=active_window_only,
+            window=window,
         )
         if not ctx.screenshot_path:
             ctx.notes.append("screenshot failed (is grim installed?)")

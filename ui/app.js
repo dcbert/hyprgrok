@@ -124,6 +124,7 @@ function renderContext(ctx) {
   }
 
   const kindNice = KIND_LABELS[ctx.kind] || ctx.kind || "Unknown";
+  const note = (ctx.notes || []).find((n) => String(n).includes("ignored HyprGrok"));
   const rows = [
     ["kind", kindNice],
     ["title", ctx.window_title],
@@ -135,21 +136,30 @@ function renderContext(ctx) {
     ["workspace", ctx.workspace],
     ["shot", ctx.screenshot_path],
   ].filter(([, v]) => v);
+  // surface skip-panel note at top of context
+  if (note) {
+    /* rendered below via note banner */
+  }
 
   if (!rows.length) {
     els.contextBody.innerHTML = `<div class="empty-block">No window details yet. Focus a terminal or editor, then hit Refresh.</div>`;
     return;
   }
 
-  els.contextBody.innerHTML = rows
-    .map(([k, v]) => {
-      const label = CONTEXT_LABELS[k] || k;
-      return `<div class="ctx-row" title="${escapeHtml(label)}">
+  const noteHtml = note
+    ? `<div class="ctx-note">Using the window focused before HyprGrok (panel ignored)</div>`
+    : "";
+  els.contextBody.innerHTML =
+    noteHtml +
+    rows
+      .map(([k, v]) => {
+        const label = CONTEXT_LABELS[k] || k;
+        return `<div class="ctx-row" title="${escapeHtml(label)}">
         <span class="k">${escapeHtml(label)}</span>
         <span class="v">${escapeHtml(String(v))}</span>
       </div>`;
-    })
-    .join("");
+      })
+      .join("");
 }
 
 function setEmptyResponse() {
