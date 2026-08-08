@@ -131,15 +131,17 @@
       <div class="list-card">
         <div class="list-head">
           <div>
-            <span class="section-title">Your Grok activity</span>
-            <p class="section-hint">Quick answers and full sessions started from HyprGrok. Click a finished answer to reopen it.</p>
+            <span class="section-title">Grok Build sessions</span>
+            <p class="section-hint">From <code>~/.grok/sessions</code> — real Grok Build history. Resume opens the official TUI.</p>
           </div>
           <button type="button" class="ghost" id="refreshSessions" title="Refresh the list">Refresh</button>
         </div>
+        <div class="search-row">
+          <input type="search" id="sessionSearch" placeholder="Search titles &amp; prompts…" autocomplete="off" />
+        </div>
         <div class="legend">
-          <span><span class="badge running">running</span> still active</span>
-          <span><span class="badge completed">completed</span> finished</span>
-          <span><span class="badge failed">failed</span> error</span>
+          <span><span class="badge running">active</span> process still open</span>
+          <span><span class="badge completed">saved</span> in Grok history</span>
         </div>
         <div id="sessionsList" class="list-body muted">Loading…</div>
       </div>
@@ -151,7 +153,7 @@
         <div class="list-head">
           <div>
             <span class="section-title">Prompt history</span>
-            <p class="section-hint">Click any line to put it back in the Ask box so you can edit and send again.</p>
+            <p class="section-hint">From Grok Build <code>prompt_history.jsonl</code> (per project). Click to reuse in Ask.</p>
           </div>
           <button type="button" class="ghost" id="refreshHistory" title="Refresh history">Refresh</button>
         </div>

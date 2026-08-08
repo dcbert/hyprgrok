@@ -78,6 +78,8 @@ def launch_interactive_session(
     cwd: str | None = None,
     prompt: str | None = None,
     extra_args: list[str] | None = None,
+    resume: str | None = None,
+    continue_session: bool = False,
 ) -> LaunchResult:
     grok = ensure_grok(cfg)
     if not grok:
@@ -86,9 +88,13 @@ def launch_interactive_session(
     workdir = cwd or os.getcwd()
     cmd = [grok, "--cwd", workdir]
     cmd.extend(cfg.launch.full_session_args)
+    if resume:
+        cmd.extend(["--resume", resume])
+    elif continue_session:
+        cmd.append("--continue")
     if extra_args:
         cmd.extend(extra_args)
-    if prompt:
+    if prompt and not resume and not continue_session:
         cmd.append(prompt)
 
     terminal = resolve_terminal(cfg)

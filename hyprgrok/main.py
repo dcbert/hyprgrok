@@ -369,34 +369,74 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 
 def cmd_sessions(args: argparse.Namespace) -> int:
-    mgr = SessionManager()
+    from hyprgrok import grok_store
+
     if args.stop:
+        mgr = SessionManager()
         ok = mgr.stop(args.stop)
         print("stopped" if ok else "could not stop (missing pid or already dead)")
         return 0 if ok else 1
-    rows = mgr.list_running() if args.running else mgr.list_recent(limit=args.limit)
+    if args.resume:
+        cfg = load_config()
+        detail = grok_store.get_session(args.resume)
+        workdir = args.cwd or (detail or {}).get("cwd") or smart_launch_cwd()
+        result = launch_interactive_session(cfg, cwd=workdir, resume=args.resume)
+        print(result.message)
+        return 0 if result.ok else 1
+
+    if args.panel_only:
+        mgr = SessionManager()
+        rows = mgr.list_running() if args.running else mgr.list_recent(limit=args.limit)
+    elif args.q:
+        rows = grok_store.search_sessions(args.q, limit=args.limit)
+    else:
+        rows = grok_store.list_sessions(limit=args.limit, include_first_prompt=True, include_todos=False)
+        if args.running:
+            rows = [r for r in rows if r.get("active")]
+
     if args.json:
         print(json.dumps(rows, indent=2))
         return 0
     if not rows:
-        print("(no sessions)")
+        print("(no Grok Build sessions under ~/.grok/sessions)")
         return 0
     for s in rows:
-        pid = s.get("pid") or "-"
-        print(
-            f"{s.get('id', '')[:8]}  {s.get('status'):10}  {s.get('kind'):12}  "
-            f"pid={pid}  {s.get('label') or s.get('prompt', '')[:50]}"
-        )
+        # Grok store shape
+        if "title" in s or s.get("source") == "grok-build":
+            flag = "●" if s.get("active") else "○"
+            print(
+                f"{flag} {str(s.get('id', ''))[:8]}  {(s.get('title') or '')[:48]:48}  "
+                f"{(s.get('cwd') or '')[:40]}"
+            )
+        else:
+            pid = s.get("pid") or "-"
+            print(
+                f"{s.get('id', '')[:8]}  {s.get('status'):10}  {s.get('kind'):12}  "
+                f"pid={pid}  {s.get('label') or s.get('prompt', '')[:50]}"
+            )
     return 0
 
 
 def cmd_history(args: argparse.Namespace) -> int:
-    items = load_prompt_history(limit=args.limit)
+    from hyprgrok import grok_store
+
+    if args.panel_only:
+        items = load_prompt_history(limit=args.limit)
+        rows = [{"prompt": p, "source": "hyprgrok"} for p in items]
+    else:
+        rows = grok_store.list_prompt_history(limit=args.limit, cwd_filter=args.cwd)
     if args.json:
-        print(json.dumps(items, indent=2))
+        print(json.dumps(rows, indent=2))
         return 0
-    for i, p in enumerate(items, 1):
-        print(f"{i:2}. {p}")
+    if not rows:
+        print("(no prompt history in ~/.grok/sessions)")
+        return 0
+    for i, p in enumerate(rows, 1):
+        text = p.get("prompt", p) if isinstance(p, dict) else p
+        cwd = (p.get("cwd") if isinstance(p, dict) else "") or ""
+        print(f"{i:2}. {str(text)[:100]}")
+        if cwd:
+            print(f"    @ {cwd}")
     return 0
 
 
@@ -486,16 +526,22 @@ def build_parser() -> argparse.ArgumentParser:
     p_status.add_argument("--waybar", action="store_true", help="Waybar custom module JSON")
     p_status.set_defaults(func=cmd_status)
 
-    p_sessions = sub.add_parser("sessions", help="List / stop tracked Grok sessions")
+    p_sessions = sub.add_parser("sessions", help="List / resume Grok Build sessions from ~/.grok")
     p_sessions.add_argument("--json", action="store_true")
-    p_sessions.add_argument("--running", action="store_true")
+    p_sessions.add_argument("--running", action="store_true", help="Only active (open) sessions")
     p_sessions.add_argument("--limit", type=int, default=20)
-    p_sessions.add_argument("--stop", metavar="ID", help="Stop interactive session by id")
+    p_sessions.add_argument("-q", "--query", dest="q", help="Search titles/prompts")
+    p_sessions.add_argument("--resume", metavar="ID", help="Resume session in a terminal")
+    p_sessions.add_argument("--cwd", help="Working directory for resume")
+    p_sessions.add_argument("--panel-only", action="store_true", help="Only HyprGrok panel activity log")
+    p_sessions.add_argument("--stop", metavar="ID", help="Stop panel-tracked process by id")
     p_sessions.set_defaults(func=cmd_sessions)
 
-    p_hist = sub.add_parser("history", help="Recent prompts")
+    p_hist = sub.add_parser("history", help="Recent prompts from Grok Build (~/.grok)")
     p_hist.add_argument("--json", action="store_true")
     p_hist.add_argument("--limit", type=int, default=30)
+    p_hist.add_argument("--cwd", help="Filter to a project folder")
+    p_hist.add_argument("--panel-only", action="store_true", help="Only HyprGrok local history")
     p_hist.set_defaults(func=cmd_history)
 
     p_aw = sub.add_parser("ask-window", help="Analyze the focused window with Grok Build")

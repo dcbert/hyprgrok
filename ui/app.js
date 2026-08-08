@@ -365,65 +365,105 @@ function timeAgo(ts) {
   return `${Math.floor(sec / 86400)}d ago`;
 }
 
+function formatWhen(iso) {
+  if (!iso) return "";
+  // support unix-ish or iso
+  const ts = Date.parse(iso);
+  if (!Number.isNaN(ts)) return timeAgo(ts / 1000);
+  return String(iso).slice(0, 16);
+}
+
+async function resumeSession(id, cwd) {
+  setBusy(true, "Resuming Grok Build session in a terminal…");
+  try {
+    const { data } = await api("/api/session/resume", {
+      method: "POST",
+      body: JSON.stringify({ id, cwd }),
+    });
+    if (data.ok) {
+      toast(data.message || "Session resumed in terminal");
+      showResponse(
+        `Resumed Grok Build session\n\nID: ${id}\nFolder: ${data.cwd || cwd || "(default)"}\n\nContinue in the new terminal window.`,
+        "answer"
+      );
+    } else {
+      toast(data.error || "Could not resume", true);
+    }
+  } catch (e) {
+    toast(String(e), true);
+  } finally {
+    setBusy(false);
+    refreshStatus();
+    refreshSessions();
+  }
+}
+
 async function refreshSessions() {
   try {
-    const { data } = await api("/api/sessions?limit=40");
+    const q = ($("sessionSearch")?.value || "").trim();
+    const path = q
+      ? `/api/sessions?limit=50&q=${encodeURIComponent(q)}`
+      : "/api/sessions?limit=50";
+    const { data } = await api(path);
     if (!data.ok) return;
     const sessions = data.sessions || [];
     if (!sessions.length) {
       els.sessionsList.innerHTML = `<div class="empty-block">
-        <strong>No activity yet</strong>
-        <p>Send a <em>quick answer</em> or open a <em>full Grok session</em> from the Ask tab. They’ll show up here.</p>
+        <strong>No Grok Build sessions found</strong>
+        <p>Official history lives under <code>~/.grok/sessions</code>. Start a full session or quick answer — it will appear here after Grok saves it.</p>
       </div>`;
       return;
     }
     els.sessionsList.innerHTML = sessions
       .map((s) => {
-        const title = escapeHtml(s.label || s.prompt || s.kind);
-        const status = s.status || "";
-        const statusLabel = STATUS_LABELS[status] || status;
-        const kindHelp = KIND_HELP[s.kind] || s.kind || "";
+        const title = escapeHtml(s.title || s.label || "Untitled session");
+        const active = !!s.active;
+        const statusClass = active ? "running" : "completed";
+        const statusLabel = active ? "Active now" : "Saved";
         const cwd = escapeHtml(s.cwd || "");
-        const preview = escapeHtml((s.response_preview || s.error || "").slice(0, 160));
-        const stopBtn =
-          s.status === "running" && s.kind === "interactive"
-            ? `<button type="button" class="secondary stop-btn" data-id="${escapeHtml(
-                s.id
-              )}" title="Send stop to the terminal session process">Stop session</button>`
-            : "";
-        const reuseBtn = s.prompt
-          ? `<button type="button" class="secondary reuse-btn" data-prompt="${escapeHtml(
-              s.prompt
-            )}" title="Copy this prompt back into the Ask box">Use prompt again</button>`
+        const model = escapeHtml(s.model || "");
+        const agent = escapeHtml(s.agent_name || "");
+        const preview = escapeHtml((s.first_prompt || s.response_preview || "").slice(0, 180));
+        const when = formatWhen(s.last_active_at || s.updated_at || s.created_at);
+        const msgs = s.num_chat_messages || s.num_messages || 0;
+        const todos = s.todos || [];
+        const openTodos = todos.filter((t) => t.status === "in_progress" || t.status === "pending");
+        const todoLine = openTodos.length
+          ? `<div class="todo-line"><span class="todo-active">${openTodos.length} open todo(s)</span> · ${escapeHtml(
+              openTodos[0].content || ""
+            ).slice(0, 80)}</div>`
           : "";
-        const clickHint =
-          s.response_preview && s.kind === "headless"
-            ? "Click to show this answer in Ask"
-            : "";
-        return `<div class="list-item" data-id="${escapeHtml(s.id)}" title="${escapeHtml(clickHint)}">
+        const resumeBtn = `<button type="button" class="secondary resume-btn" data-id="${escapeHtml(
+          s.id
+        )}" data-cwd="${cwd}" title="Open this session in a terminal with grok --resume">Resume in terminal</button>`;
+        const reuseBtn = s.first_prompt
+          ? `<button type="button" class="secondary reuse-btn" data-prompt="${escapeHtml(
+              s.first_prompt
+            )}" title="Copy first prompt into Ask">Reuse first prompt</button>`
+          : "";
+        return `<div class="list-item" data-id="${escapeHtml(s.id)}">
           <div class="title">${title}</div>
           <div class="meta">
             <span>
-              <span class="badge ${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
-              · ${escapeHtml(kindHelp)}
-              · ${timeAgo(s.created_at)}
+              <span class="badge ${statusClass}">${statusLabel}</span>
+              ${model ? ` · ${model}` : ""}
+              ${agent ? ` · ${agent}` : ""}
+              ${msgs ? ` · ${msgs} msgs` : ""}
+              ${when ? ` · ${when}` : ""}
             </span>
             <span title="Working directory">${cwd}</span>
           </div>
           ${preview ? `<div class="preview muted">${preview}</div>` : ""}
-          <div class="item-actions">${reuseBtn}${stopBtn}</div>
+          ${todoLine}
+          <div class="item-actions">${resumeBtn}${reuseBtn}</div>
         </div>`;
       })
       .join("");
 
-    els.sessionsList.querySelectorAll(".stop-btn").forEach((btn) => {
-      btn.addEventListener("click", async (e) => {
+    els.sessionsList.querySelectorAll(".resume-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
         e.stopPropagation();
-        const id = btn.getAttribute("data-id");
-        await api("/api/session/stop", { method: "POST", body: JSON.stringify({ id }) });
-        toast("Stop signal sent to that session");
-        refreshSessions();
-        refreshStatus();
+        resumeSession(btn.getAttribute("data-id"), btn.getAttribute("data-cwd"));
       });
     });
     els.sessionsList.querySelectorAll(".reuse-btn").forEach((btn) => {
@@ -432,51 +472,83 @@ async function refreshSessions() {
         els.prompt.value = btn.getAttribute("data-prompt") || "";
         document.querySelector('.tab[data-tab="ask"]')?.click();
         els.prompt.focus();
-        toast("Prompt loaded — edit if you want, then Get quick answer");
+        toast("First prompt loaded into Ask");
       });
     });
     els.sessionsList.querySelectorAll(".list-item").forEach((item) => {
-      item.addEventListener("click", () => {
+      item.addEventListener("click", (e) => {
+        if (e.target.closest("button")) return;
         const id = item.getAttribute("data-id");
         const s = sessions.find((x) => x.id === id);
         if (!s) return;
-        if (s.response_preview) {
-          showResponse(s.response_preview, s.status === "failed" ? "error" : "answer");
-          document.querySelector('.tab[data-tab="ask"]')?.click();
-          toast("Showing saved answer");
-        } else if (s.kind === "interactive") {
-          toast("That was a full terminal session — continue in the terminal window", false);
-        }
+        const todos = (s.todos || [])
+          .map((t) => `  [${t.status}] ${t.content}`)
+          .join("\n");
+        showResponse(
+          [
+            s.title || "Session",
+            "",
+            `ID: ${s.id}`,
+            `Folder: ${s.cwd || "—"}`,
+            `Model: ${s.model || "—"}`,
+            `Agent: ${s.agent_name || "—"}`,
+            `Messages: ${s.num_chat_messages || s.num_messages || 0}`,
+            `Updated: ${s.updated_at || s.last_active_at || "—"}`,
+            s.active ? `Active PID: ${s.active_pid || "?"}` : "Status: saved in Grok history",
+            "",
+            "First prompt:",
+            s.first_prompt || "(none found)",
+            todos ? `\nTodos:\n${todos}` : "",
+            "",
+            "Use “Resume in terminal” to continue with official Grok Build.",
+          ]
+            .filter((x) => x !== undefined)
+            .join("\n"),
+          "answer"
+        );
+        document.querySelector('.tab[data-tab="ask"]')?.click();
       });
     });
   } catch (_) {
-    els.sessionsList.innerHTML = `<div class="empty-block">Could not load sessions.</div>`;
+    els.sessionsList.innerHTML = `<div class="empty-block">Could not load Grok Build sessions from ~/.grok.</div>`;
   }
 }
 
 async function refreshHistory() {
   try {
-    const { data } = await api("/api/history");
+    const { data } = await api("/api/history?limit=50");
     if (!data.ok) return;
-    const prompts = data.prompts || [];
-    if (!prompts.length) {
+    const items = data.items || data.prompts || [];
+    // Normalize: may be strings (legacy) or objects
+    const rows = items.map((p) =>
+      typeof p === "string" ? { prompt: p, source: "hyprgrok", cwd: "", timestamp: "" } : p
+    );
+    if (!rows.length) {
       els.historyList.innerHTML = `<div class="empty-block">
-        <strong>No saved prompts yet</strong>
-        <p>After you send a quick answer or analyze a window, the prompt text is remembered here for reuse.</p>
+        <strong>No prompts in Grok history yet</strong>
+        <p>Grok Build stores prompts in <code>~/.grok/sessions/…/prompt_history.jsonl</code> per project folder.</p>
       </div>`;
       return;
     }
-    els.historyList.innerHTML = prompts
-      .map(
-        (p) => `<div class="list-item history-item" title="Click to load into Ask">
-          <div class="title">${escapeHtml(p)}</div>
-          <div class="meta"><span class="muted">Click to edit &amp; send again</span></div>
-        </div>`
-      )
+    els.historyList.innerHTML = rows
+      .map((p, idx) => {
+        const text = escapeHtml(p.prompt || "");
+        const when = formatWhen(p.timestamp);
+        const cwd = escapeHtml(p.cwd || "");
+        const src = p.source === "grok-build" ? "Grok Build" : "HyprGrok";
+        return `<div class="list-item history-item" data-idx="${idx}" title="Click to load into Ask">
+          <div class="title">${text}</div>
+          <div class="meta">
+            <span>${escapeHtml(src)}${when ? ` · ${when}` : ""}</span>
+            <span>${cwd}</span>
+          </div>
+        </div>`;
+      })
       .join("");
-    els.historyList.querySelectorAll(".history-item").forEach((item, idx) => {
+    els.historyList.querySelectorAll(".history-item").forEach((item) => {
       item.addEventListener("click", () => {
-        els.prompt.value = prompts[idx];
+        const idx = Number(item.getAttribute("data-idx"));
+        els.prompt.value = rows[idx]?.prompt || "";
         document.querySelector('.tab[data-tab="ask"]')?.click();
         els.prompt.focus();
         toast("Prompt loaded into Ask");
@@ -513,6 +585,12 @@ els.refreshContext.addEventListener("click", () => {
 });
 els.refreshSessions?.addEventListener("click", refreshSessions);
 els.refreshHistory?.addEventListener("click", refreshHistory);
+
+let sessionSearchTimer = null;
+$("sessionSearch")?.addEventListener("input", () => {
+  clearTimeout(sessionSearchTimer);
+  sessionSearchTimer = setTimeout(refreshSessions, 250);
+});
 els.clearResponse.addEventListener("click", () => {
   setEmptyResponse();
   toast("Answer cleared");

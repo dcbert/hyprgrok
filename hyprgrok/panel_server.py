@@ -23,6 +23,7 @@ from hyprgrok.config import (
 )
 from hyprgrok.context import ask_about_window_prompt, gather_context, smart_launch_cwd
 from hyprgrok import hypr as hypr_api
+from hyprgrok import grok_store
 from hyprgrok.launcher import (
     grok_missing_message,
     launch_interactive_session,
@@ -109,6 +110,7 @@ def make_handler(state: PanelState) -> type[BaseHTTPRequestHandler]:
                         "last_error": state.last_error,
                         "missing_message": None if grok else grok_missing_message(),
                         "sessions_summary": state.sessions.summary(),
+                        "grok_store": grok_store.store_summary(),
                         "waybar": st,
                     },
                 )
@@ -140,25 +142,80 @@ def make_handler(state: PanelState) -> type[BaseHTTPRequestHandler]:
                 return
 
             if path == "/api/sessions":
-                limit = 30
+                limit = 40
                 try:
-                    limit = int(qs.get("limit", ["30"])[0])
+                    limit = int(qs.get("limit", ["40"])[0])
                 except ValueError:
                     pass
+                q = (qs.get("q") or [""])[0].strip()
+                cwd = (qs.get("cwd") or [None])[0]
+                if q:
+                    grok_sessions = grok_store.search_sessions(q, limit=limit)
+                else:
+                    grok_sessions = grok_store.list_sessions(
+                        limit=limit,
+                        cwd_filter=cwd or None,
+                        include_first_prompt=True,
+                        include_todos=True,
+                    )
+                active = [s for s in grok_sessions if s.get("active")]
                 _json_response(
                     self,
                     200,
                     {
                         "ok": True,
-                        "sessions": state.sessions.list_recent(limit=limit),
-                        "running": state.sessions.list_running(),
-                        "summary": state.sessions.summary(),
+                        "source": "grok-build",
+                        "sessions": grok_sessions,
+                        "running": active,
+                        "panel_activity": state.sessions.list_recent(limit=20),
+                        "summary": {
+                            **state.sessions.summary(),
+                            "grok_total": len(grok_sessions),
+                            "grok_active": len(active),
+                            "grok_home": str(grok_store.grok_home()),
+                        },
                     },
                 )
                 return
 
+            if path == "/api/session/detail":
+                sid = (qs.get("id") or [""])[0].strip()
+                if not sid:
+                    _json_response(self, 400, {"ok": False, "error": "id required"})
+                    return
+                detail = grok_store.get_session(sid)
+                if not detail:
+                    _json_response(self, 404, {"ok": False, "error": "session not found"})
+                    return
+                _json_response(self, 200, {"ok": True, "session": detail})
+                return
+
             if path == "/api/history":
-                _json_response(self, 200, {"ok": True, "prompts": load_prompt_history()})
+                limit = 50
+                try:
+                    limit = int(qs.get("limit", ["50"])[0])
+                except ValueError:
+                    pass
+                cwd = (qs.get("cwd") or [None])[0]
+                grok_prompts = grok_store.list_prompt_history(limit=limit, cwd_filter=cwd or None)
+                # Merge local panel prompts that may not be in grok history yet
+                local = load_prompt_history(limit=limit)
+                merged: list[dict] = list(grok_prompts)
+                seen = {p.get("prompt") for p in merged}
+                for p in local:
+                    if p not in seen:
+                        merged.append({"prompt": p, "source": "hyprgrok", "timestamp": "", "session_id": "", "cwd": ""})
+                        seen.add(p)
+                _json_response(
+                    self,
+                    200,
+                    {
+                        "ok": True,
+                        "source": "grok-build",
+                        "prompts": merged[:limit],
+                        "items": merged[:limit],
+                    },
+                )
                 return
 
             if path == "/api/hypr/snapshot":
@@ -200,6 +257,37 @@ def make_handler(state: PanelState) -> type[BaseHTTPRequestHandler]:
                 sid = str(data.get("id") or "")
                 ok = state.sessions.stop(sid) if sid else False
                 _json_response(self, 200, {"ok": ok, "id": sid})
+                return
+            if path == "/api/session/resume":
+                sid = str(data.get("id") or data.get("session_id") or "").strip()
+                if not sid:
+                    _json_response(self, 400, {"ok": False, "error": "session id required"})
+                    return
+                detail = grok_store.get_session(sid)
+                workdir = str(data.get("cwd") or (detail or {}).get("cwd") or smart_launch_cwd())
+                result = launch_interactive_session(state.cfg, cwd=workdir, resume=sid)
+                if result.ok:
+                    state.sessions.add(
+                        kind="interactive",
+                        cwd=workdir,
+                        prompt=f"resume {sid[:8]}",
+                        pid=result.pid,
+                        status="running",
+                        label=f"Resume: {(detail or {}).get('title') or sid[:8]}",
+                    )
+                    _json_response(
+                        self,
+                        200,
+                        {
+                            "ok": True,
+                            "message": result.message,
+                            "cwd": workdir,
+                            "session_id": sid,
+                            "pid": result.pid,
+                        },
+                    )
+                else:
+                    _json_response(self, 200, {"ok": False, "error": result.message})
                 return
             if path == "/api/hide":
                 _json_response(

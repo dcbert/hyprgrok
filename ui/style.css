@@ -501,6 +501,37 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
   margin-top: 2px;
 }
 
+.search-row {
+  margin-bottom: 10px;
+}
+
+.search-row input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  background: rgba(10, 12, 18, 0.55);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  outline: none;
+}
+
+.search-row input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(122, 162, 247, 0.15);
+}
+
+.todo-line {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.todo-line .todo-active {
+  color: var(--accent);
+}
+
 .response-card {
   flex: 1;
   min-height: 0;

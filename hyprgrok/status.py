@@ -12,6 +12,8 @@ from hyprgrok.session import SessionManager
 
 
 def build_status() -> dict[str, Any]:
+    from hyprgrok import grok_store
+
     cfg = load_config()
     sessions = SessionManager()
     summary = sessions.summary()
@@ -19,7 +21,11 @@ def build_status() -> dict[str, Any]:
     server = is_server_alive()
     port = read_running_port() if server else None
 
-    running = summary["running"]
+    # Prefer live Grok Build processes from ~/.grok/active_sessions.json
+    active_map = grok_store.load_active_sessions()
+    grok_active = sum(1 for v in active_map.values() if v.get("alive"))
+    running = max(summary["running"], grok_active)
+
     text = "Grok"
     if not grok:
         text = "Grok?"
@@ -28,7 +34,7 @@ def build_status() -> dict[str, Any]:
     elif running:
         text = f"Grok {running}"
         css = "active"
-        tooltip = f"{running} HyprGrok session(s) running"
+        tooltip = f"{running} Grok Build session(s) open"
     elif server:
         text = "Grok"
         css = "idle"
@@ -38,6 +44,7 @@ def build_status() -> dict[str, Any]:
         css = "idle"
         tooltip = "HyprGrok idle — Super+G to open"
 
+    store = grok_store.store_summary()
     return {
         "text": text,
         "alt": css,
@@ -48,7 +55,11 @@ def build_status() -> dict[str, Any]:
         "grok_found": bool(grok),
         "panel_running": server,
         "panel_port": port,
-        "sessions": summary,
+        "sessions": {
+            **summary,
+            "grok_active": grok_active,
+            "grok_total": store.get("total_sessions", 0),
+        },
     }
 
 
