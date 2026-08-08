@@ -48,7 +48,8 @@ class PanelApiTests(unittest.TestCase):
         with urlopen(f"http://127.0.0.1:{self.port}/", timeout=5) as resp:
             body = resp.read().decode("utf-8")
         self.assertIn("HyprGrok", body)
-        self.assertIn("Send to Grok", body)
+        self.assertIn("Get quick answer", body)
+        self.assertIn("Grok Build sessions", body)
 
 
 if __name__ == "__main__":
