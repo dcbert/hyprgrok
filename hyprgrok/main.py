@@ -20,6 +20,7 @@ from hyprgrok.config import (
     CONFIG_PATH,
     PANEL_TITLE,
     PID_PATH,
+    Config,
     ensure_dirs,
     find_grok_binary,
     load_config,
@@ -138,7 +139,7 @@ def focus_panel_window() -> bool:
         return False
 
 
-def open_panel_window(port: int, browser: str | None) -> bool:
+def open_panel_window(port: int, browser: str | None, cfg: Config | None = None) -> bool:
     # If panel already exists, just focus it
     if find_panel_clients():
         return focus_panel_window()
@@ -146,6 +147,7 @@ def open_panel_window(port: int, browser: str | None) -> bool:
     url = f"http://127.0.0.1:{port}/"
     profile = CONFIG_DIR / "browser-profile"
     profile.mkdir(parents=True, exist_ok=True)
+    cfg = cfg or load_config()
 
     if browser:
         name = Path(browser).name
@@ -153,10 +155,14 @@ def open_panel_window(port: int, browser: str | None) -> bool:
             cmd = [browser, "--new-window", url]
         else:
             # Chromium family app window — title comes from page <title>
+            # Explicit size avoids half-empty Chrome app surfaces on wide monitors
+            w = max(480, int(cfg.panel.width or 560))
+            h = max(720, int(cfg.panel.height or 980))
             cmd = [
                 browser,
                 f"--app={url}",
                 f"--user-data-dir={profile}",
+                f"--window-size={w},{h}",
                 "--no-first-run",
                 "--disable-extensions",
                 f"--class={__app_name__}-panel",
@@ -275,7 +281,7 @@ def cmd_toggle(_args: argparse.Namespace) -> int:
             )
         return 1
 
-    if not open_panel_window(port, browser):
+    if not open_panel_window(port, browser, cfg=cfg):
         msg = f"Panel server is on http://127.0.0.1:{port}/ but no browser opened"
         print(msg, file=sys.stderr)
         if shutil.which("notify-send"):
