@@ -42,8 +42,8 @@ def ui_root() -> Path:
 @dataclass
 class PanelConfig:
     position: str = "right"  # left | right
-    width: int = 420
-    height: int = 720
+    width: int = 520
+    height: int = 960
     opacity: float = 0.92
     port: int = DEFAULT_PORT
     auto_inject_context: bool = False
