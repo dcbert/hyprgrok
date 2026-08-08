@@ -11,6 +11,28 @@ It does **not** call the xAI API itself. It launches, manages, and enhances real
 
 ---
 
+## Screenshots
+
+Glass panel on Hyprland — desktop context, quick ask, full session, and window analysis:
+
+![HyprGrok glass panel](assets/screenshot-panel.png)
+
+Panel floating over the desktop (right side), next to a normal coding layout:
+
+![HyprGrok panel on the Hyprland desktop](assets/screenshot-panel-in-desktop.png)
+
+| Area | What you see |
+|------|----------------|
+| **What you're focused on** | Active app/window from Hyprland (panel itself is ignored) |
+| **Your question** | Prompt box + optional desktop context / screenshot |
+| **Get quick answer** | One-shot `grok -p` reply in the panel |
+| **Open full Grok session** | Interactive TUI in a terminal |
+| **Sessions / History** | Real data from `~/.grok/sessions` |
+
+Toggle with **`Super + Space`**.
+
+---
+
 ## Features
 
 ### Core (v0.1)
