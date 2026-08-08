@@ -1,11 +1,11 @@
-# HyprGrok — Full Project Plan (Option 1: Companion Panel)
+# Archived product plan
 
-This repository implements **Option 1**: a companion panel on top of official Grok Build.
+Early design notes for **Option 1: Companion Panel** on top of official Grok Build.
 
-See the root [README.md](../README.md) and [TECH_SPEC.md](TECH_SPEC.md) for the executable MVP.
+**Current docs:** [README](../README.md) · [TECH_SPEC](TECH_SPEC.md) · [CHANGELOG](../CHANGELOG.md)
 
-Original plan summary:
+Summary of the original intent (still valid):
 
-- **Vision:** Make Grok Build feel first-class on Hyprland
-- **MVP:** Glass panel, quick prompt, full session, desktop context, keybinds, install/uninstall
-- **Non-goals (MVP):** Calling xAI API directly, multi-session switcher, ACP-only mode
+- Make Grok Build feel first-class on Hyprland  
+- Glass panel, context injection, real `grok` binary only  
+- No xAI API keys in HyprGrok  

@@ -116,5 +116,5 @@ fi
 
 echo ""
 echo "${GRN}HyprGrok uninstalled.${RST}"
-echo "  If you still have Super+G bound, reload Hyprland or remove leftover binds manually."
+echo "  If Super+Space still opens HyprGrok, reload Hyprland or remove leftover binds manually."
 echo ""

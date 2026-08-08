@@ -9,7 +9,7 @@
 set -euo pipefail
 
 APP_NAME="hyprgrok"
-VERSION="0.2.0"
+VERSION="0.3.0"
 # Override for forks / branches when using curl | bash
 REPO_OWNER="${HYPRGROK_REPO_OWNER:-dcbert}"
 REPO_NAME="${HYPRGROK_REPO_NAME:-hyprgrok}"

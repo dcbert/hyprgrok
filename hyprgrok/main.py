@@ -19,7 +19,6 @@ from hyprgrok.config import (
     CONFIG_DIR,
     CONFIG_PATH,
     PANEL_TITLE,
-    PID_PATH,
     Config,
     ensure_dirs,
     find_grok_binary,
@@ -232,7 +231,7 @@ def ensure_server_running(cfg=None) -> int:
         port = read_running_port()
         return port or cfg.panel.port
 
-    # Start server in background
+    # Start server in background (-P: don't put cwd ahead of package on sys.path)
     python = sys.executable
     env = os.environ.copy()
     env["PYTHONPATH"] = str(package_root()) + (
@@ -240,10 +239,16 @@ def ensure_server_running(cfg=None) -> int:
     )
     log = CONFIG_DIR / "panel.log"
     ensure_dirs()
+    serve_cmd = [python, "-P", "-m", "hyprgrok", "serve"]
+    # Older Python without -P still works via plain -m
+    try:
+        subprocess.run([python, "-P", "-c", "pass"], capture_output=True, check=True, timeout=2)
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        serve_cmd = [python, "-m", "hyprgrok", "serve"]
     with log.open("a", encoding="utf-8") as fh:
         fh.write(f"\n--- starting panel server {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n")
         proc = subprocess.Popen(
-            [python, "-m", "hyprgrok", "serve"],
+            serve_cmd,
             cwd=str(package_root()),
             env=env,
             start_new_session=True,

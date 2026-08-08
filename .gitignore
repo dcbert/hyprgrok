@@ -1,5 +1,6 @@
 __pycache__/
 *.py[cod]
+*$py.class
 *.egg-info/
 .eggs/
 dist/
@@ -14,4 +15,7 @@ venv/
 .idea/
 .vscode/
 *.swp
+*~
 .grok/
+# local editor / OS junk
+Thumbs.db

@@ -1,6 +1,6 @@
-# HyprGrok default configuration
-# User copy lives at ~/.config/hyprgrok/config.toml
-# HyprGrok never stores xAI API keys — auth stays with official Grok Build.
+# HyprGrok default configuration (v0.3)
+# Copied to ~/.config/hyprgrok/config.toml on first install.
+# HyprGrok never stores xAI API keys — authentication stays with official Grok Build.
 
 grok_binary = "grok"
 notify_on_complete = true

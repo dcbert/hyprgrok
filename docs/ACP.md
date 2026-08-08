@@ -1,6 +1,6 @@
 # Future: Agent Client Protocol (ACP) integration
 
-HyprGrok v0.2 launches and enhances **official Grok Build** via:
+HyprGrok launches and enhances **official Grok Build** via:
 
 - Headless: `grok -p`
 - Interactive: full TUI in a terminal

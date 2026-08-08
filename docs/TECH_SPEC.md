@@ -1,121 +1,96 @@
-# HyprGrok Technical Spec — Phase 0–3 (through v0.2)
+# HyprGrok technical specification
 
-## Scope
+Version: **0.3.0**
 
-Ship a usable Hyprland companion for official Grok Build:
+## Goals
 
-- Config system under `~/.config/hyprgrok/`
-- Detect `grok` binary (never handle API keys)
-- Context: active window + cwd + project root (+ active-window grim)
-- Headless ask via `grok -p`
-- Interactive launch in preferred terminal
-- Local glass panel UI (HTTP + Chromium app window)
-- Install / uninstall with marked Hyprland binds & rules
-- Multi-session tracking, prompt history, Waybar status
-- Hyprland helper commands for future MCP/ACP
+- Companion UX for official Grok Build on Hyprland  
+- Zero direct xAI API usage  
+- Fast panel open, clean install/uninstall  
+- Reuse Grok’s on-disk session store  
 
-## Module map
+## Modules
 
-| Module | Responsibility |
-|--------|----------------|
-| `config.py` | Paths, TOML load/merge, grok binary discovery |
-| `context.py` | `hyprctl activewindow -j`, `/proc/<pid>/cwd`, project markers |
-| `launcher.py` | Terminal selection, `grok` interactive & `-p` headless |
-| `session.py` | Recent session history JSON |
-| `panel_server.py` | Threading HTTP server + REST API + static UI |
-| `main.py` | CLI: toggle, serve, ask, session, context, doctor, init, status, sessions, history, ask-window, hypr |
-| `status.py` | Waybar / machine-readable status |
-| `hypr.py` | Safe hyprctl wrappers |
+| Module | Role |
+|--------|------|
+| `config.py` | XDG paths, TOML merge, `grok` discovery |
+| `context.py` | Active window (skips panel), cwd, project root, grim |
+| `launcher.py` | Terminal launch, `grok -p`, resume / continue |
+| `grok_store.py` | Read-only `~/.grok/sessions` + `active_sessions.json` |
+| `session.py` | Lightweight HyprGrok-local activity log |
+| `panel_server.py` | Localhost HTTP API + static UI |
+| `runtime.py` | PID/port files for the panel server |
+| `status.py` | Waybar / Quickshell JSON status |
+| `hypr.py` | Safe `hyprctl` wrappers |
+| `main.py` | CLI |
 
-## CLI
+## CLI surface
 
 ```
-hyprgrok                 # alias for toggle
-hyprgrok toggle
+hyprgrok [toggle]
 hyprgrok serve [--port N]
-hyprgrok ask [-c] [--screenshot] [--cwd DIR] PROMPT
+hyprgrok ask [-c] [--screenshot] [--cwd DIR] [--direct] PROMPT
 hyprgrok session [PROMPT] [--cwd DIR]
+hyprgrok ask-window [PROMPT] [--cwd DIR] [--print-only]
 hyprgrok context [--json] [--screenshot]
+hyprgrok sessions [--json] [--running] [-q QUERY] [--resume ID] [--panel-only]
+hyprgrok history [--json] [--cwd DIR] [--panel-only]
+hyprgrok status [--json] [--waybar]
+hyprgrok hypr {snapshot|clients|reload|dispatch}
 hyprgrok doctor
 hyprgrok init
 ```
 
-## Panel API (localhost only)
+## Panel HTTP API (`127.0.0.1` only)
 
-| Method | Path | Notes |
-|--------|------|-------|
-| GET | `/api/status` | grok found?, busy, version |
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/status` | grok found?, busy, grok_store summary |
 | GET | `/api/context?screenshot=1` | desktop context |
 | GET | `/api/config` | theme + panel options for UI |
-| GET | `/api/sessions` | recent history |
-| POST | `/api/ask` | `{prompt, inject_context, screenshot, cwd}` |
-| POST | `/api/session` | `{prompt?, cwd?}` launch interactive |
+| GET | `/api/sessions?limit=&q=&cwd=` | Grok Build sessions |
+| GET | `/api/session/detail?id=` | one session |
+| GET | `/api/history?limit=&cwd=` | prompt history |
+| POST | `/api/ask` | headless prompt |
+| POST | `/api/session` | launch interactive |
+| POST | `/api/session/resume` | `grok --resume` |
+| POST | `/api/ask-about-window` | window analysis |
+| POST | `/api/session/stop` | stop panel-tracked PID |
+| GET | `/api/waybar` | status bar JSON |
 | GET | `/` | glass UI |
 
 ## Grok Build integration
 
 ```bash
-# Headless quick prompt
 grok -p "$PROMPT" --cwd "$DIR" --output-format plain
-
-# Interactive
-grok --cwd "$DIR" [initial prompt]
-# launched inside kitty/foot/alacritty/…
+grok --cwd "$DIR" [prompt]
+grok --cwd "$DIR" --resume "$SESSION_ID"
 ```
 
-Launcher layer abstracts CLI flags so upstream changes stay isolated.
+Session metadata (read-only):
 
-## Context algorithm
+```
+~/.grok/active_sessions.json
+~/.grok/sessions/<urlencode(cwd)>/<uuid>/summary.json
+~/.grok/sessions/<urlencode(cwd)>/prompt_history.jsonl
+~/.grok/sessions/session_search.sqlite
+```
 
-1. `hyprctl activewindow -j` → title, class, pid, workspace
-2. Resolve cwd: `/proc/<pid>/cwd` → parent pid → title parse → process cwd
-3. Walk parents for project markers (`.git`, `package.json`, `pyproject.toml`, …)
-4. Optional: `grim` → `~/.cache/hyprgrok/context-screenshot.png` (path injected into prompt text only)
+## Focus / panel window rules
 
-## Panel presentation
+- **Panel identity:** exact title `HyprGrok` or class containing `hyprgrok-panel`  
+- **Context focus:** skip panel windows; use Hyprland `focusHistoryID`  
+- **Placement:** fixed width 560px, height `monitor_h*0.88`, move `(monitor_w-576, 48)`  
+  (avoid `window_w` in move expressions — races with Chrome resize)
 
-MVP uses a **Chromium/Chrome `--app=`** window titled `HyprGrok`, ruled by Hyprland:
-
-- float, pin, fixed size, right-edge move, slight opacity
-- CSS glass (blur, translucent cards) for feel when compositor blur is globally disabled
-
-Fallback: `xdg-open` to localhost URL.
-
-Future: GTK4 layer-shell for true exclusive-zone panel without a browser.
-
-## Install layouts
-
-### Files
+## Install layout
 
 ```
 ~/.local/bin/hyprgrok
-~/.local/share/hyprgrok/{hyprgrok,ui,configs,assets}
+~/.local/bin/hyprgrok-uninstall
+~/.local/share/hyprgrok/{hyprgrok,ui,configs,assets,docs}
 ~/.config/hyprgrok/config.toml
 ~/.local/state/hyprgrok/{panel.pid,panel.port,sessions.json}
 ```
 
-### Hyprland
-
-Markers `BEGIN HYPRGROK` / `END HYPRGROK` (conf) or Lua comment equivalents.
-
-- **Lua (illogical-impulse):** append to `~/.config/hypr/custom/{keybinds,rules}.lua`
-- **Conf:** write snippets under `~/.config/hyprgrok/hyprland/` and `source` from main conf
-
-## Security / privacy
-
-- Server binds `127.0.0.1` only
-- No xAI keys in process env managed by HyprGrok
-- Screenshots stay local unless user attaches them inside a Grok session themselves
-
-## Testing (MVP)
-
-- Unit: config merge, project root detection, marked-block strip logic (shell)
-- Smoke: `hyprgrok doctor`, `context --json`, import package, HTTP `/api/status`
-- Manual on Hyprland: Super+G toggle, ask, session launch, uninstall cleanliness
-
-## Phase 2+ hooks
-
-- Multi-session registry + switcher in panel
-- ACP client if stable
-- Waybar/Quickshell module reading `sessions.json` / status endpoint
-- Layer-shell native panel (drop browser dependency)
+Hyprland markers: `# BEGIN HYPRGROK` / `# END HYPRGROK` (conf) or Lua `-- BEGIN/END HYPRGROK`.

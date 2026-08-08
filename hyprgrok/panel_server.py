@@ -293,7 +293,7 @@ def make_handler(state: PanelState) -> type[BaseHTTPRequestHandler]:
                 _json_response(
                     self,
                     200,
-                    {"ok": True, "message": "Close the panel window or press Super+G"},
+                    {"ok": True, "message": "Close the panel window or press Super+Space"},
                 )
                 return
             if path == "/api/reload-config":

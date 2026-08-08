@@ -42,7 +42,7 @@ def build_status() -> dict[str, Any]:
     else:
         text = "Grok"
         css = "idle"
-        tooltip = "HyprGrok idle — Super+G to open"
+        tooltip = "HyprGrok idle — Super+Space to open"
 
     store = grok_store.store_summary()
     return {

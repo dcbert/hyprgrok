@@ -1,8 +1,8 @@
 # Maintainer: HyprGrok contributors
 pkgname=hyprgrok
-pkgver=0.2.0
+pkgver=0.3.0
 pkgrel=1
-pkgdesc="Hyprland companion panel for official Grok Build"
+pkgdesc="Hyprland companion panel for official Grok Build (no xAI API)"
 arch=('any')
 url="https://github.com/dcbert/hyprgrok"
 license=('MIT')

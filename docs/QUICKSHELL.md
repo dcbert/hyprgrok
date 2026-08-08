@@ -1,43 +1,48 @@
 # Quickshell / Illogical Impulse bar module
 
-HyprGrok is **not** Waybar on this setup — the top bar is **Quickshell** (`qs -c ii`).
+Many Hyprland users run **Quickshell** with the Illogical Impulse (`ii`) config, not Waybar.
 
 ## What you get
 
-A **smart_toy (robot)** icon on the right side of the bar:
+A **robot** (`smart_toy`) button on the right side of the bar:
 
 | Click | Action |
 |-------|--------|
-| Left | Toggle HyprGrok glass panel |
-| Right | Open full Grok Build session |
-| Middle | Analyze focused window |
+| **Left** | Toggle HyprGrok glass panel |
+| **Right** | Full Grok Build session |
+| **Middle** | Analyze focused window |
 
-Tooltip shows status; a badge appears when sessions are active.
+Tooltip shows status; a badge appears when Grok sessions are active.
 
-## Install / enable
+## Install
 
-If you used `./install.sh` on a machine already running II, the module may already be wired.
+`./install.sh` copies `HyprGrokButton.qml` and enables `showHyprGrok` when II is detected.
 
 Manual:
 
 ```bash
-# from a HyprGrok clone
 ./configs/quickshell/install-bar-module.sh
 ```
 
-Then ensure the toggle is on:
+Then:
 
-1. Open **II Settings** (quickshell settings)
-2. **Bar → Utility buttons → HyprGrok**
-3. Reload shell: `killall qs; qs -c ii &`
+1. II **Settings → Bar → Utility buttons → HyprGrok** (on)  
+2. Reload: `killall qs; qs -c ii &`  
 
-Or set in `~/.config/illogical-impulse/config.json` under `bar.utilButtons`:
+Or in `~/.config/illogical-impulse/config.json`:
 
 ```json
-"showHyprGrok": true
+"bar": {
+  "utilButtons": {
+    "showHyprGrok": true
+  }
+}
 ```
+
+`BarContent.qml` should load `HyprGrokButton` in a `BarGroup` on the right side.  
+On Illogical Impulse upgrades that overwrite `BarContent.qml`, re-run the install helper or re-add the loader block.
 
 ## Requirements
 
-- `~/.local/bin/hyprgrok` installed
-- Illogical Impulse Quickshell config at `~/.config/quickshell/ii`
+- `~/.local/bin/hyprgrok`  
+- Quickshell config at `~/.config/quickshell/ii`  
