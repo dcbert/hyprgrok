@@ -50,18 +50,28 @@ It does **not** call the xAI API itself. It launches, manages, and enhances real
 ## Install
 
 ```bash
-git clone https://github.com/dcbert/hyprgrok.git   # or your fork
+git clone https://github.com/dcbert/hyprgrok.git
 cd hyprgrok
 ./install.sh
 ```
 
-One-liner (after the repo is public):
+One-liner (recommended — avoids occasional raw.githubusercontent.com cache lag):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dbert/hyprgrok/main/install.sh | bash
+curl -fsSL https://cdn.jsdelivr.net/gh/dcbert/hyprgrok@main/install.sh | bash
 ```
 
-Skip Hyprland edits: `./install.sh --no-hyprland`
+GitHub raw (may lag a few minutes after updates):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dcbert/hyprgrok/main/install.sh | bash
+```
+
+Skip Hyprland edits when piping:
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/dcbert/hyprgrok@main/install.sh | bash -s -- --no-hyprland
+```
 
 ### Uninstall
 
