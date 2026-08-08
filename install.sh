@@ -10,7 +10,10 @@ set -euo pipefail
 
 APP_NAME="hyprgrok"
 VERSION="0.2.0"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Override for forks / branches when using curl | bash
+REPO_OWNER="${HYPRGROK_REPO_OWNER:-dcbert}"
+REPO_NAME="${HYPRGROK_REPO_NAME:-hyprgrok}"
+REPO_REF="${HYPRGROK_REPO_REF:-main}"
 PREFIX="${PREFIX:-$HOME/.local}"
 BIN_DIR="$PREFIX/bin"
 SHARE_DIR="$PREFIX/share/$APP_NAME"
@@ -22,6 +25,8 @@ LUA_BEGIN="-- BEGIN HYPRGROK"
 LUA_END="-- END HYPRGROK"
 INSTALL_HYPRLAND=1
 FORCE=0
+SCRIPT_DIR=""
+_TMP_SOURCE_DIR=""
 
 RED=$'\033[0;31m'
 GRN=$'\033[0;32m'
@@ -29,10 +34,77 @@ YLW=$'\033[0;33m'
 CYN=$'\033[0;36m'
 RST=$'\033[0m'
 
-info()  { printf "%s==>%s %s\n" "$CYN" "$RST" "$*"; }
-ok()    { printf "%s[ok]%s %s\n" "$GRN" "$RST" "$*"; }
-warn()  { printf "%s[warn]%s %s\n" "$YLW" "$RST" "$*"; }
+# Logs go to stderr so command substitutions (e.g. resolve_script_dir) stay clean.
+info()  { printf "%s==>%s %s\n" "$CYN" "$RST" "$*" >&2; }
+ok()    { printf "%s[ok]%s %s\n" "$GRN" "$RST" "$*" >&2; }
+warn()  { printf "%s[warn]%s %s\n" "$YLW" "$RST" "$*" >&2; }
 err()   { printf "%s[err]%s %s\n" "$RED" "$RST" "$*" >&2; }
+
+cleanup_tmp() {
+  if [[ -n "${_TMP_SOURCE_DIR:-}" && -d "${_TMP_SOURCE_DIR:-}" ]]; then
+    rm -rf "$_TMP_SOURCE_DIR"
+  fi
+}
+trap cleanup_tmp EXIT
+
+# Resolve repo root. Works for:
+#   ./install.sh
+#   bash install.sh
+#   curl -fsSL …/install.sh | bash
+#   curl -fsSL …/install.sh | bash -s -- --no-hyprland
+resolve_script_dir() {
+  local src="${BASH_SOURCE[0]:-}"
+  # Local / downloaded file (not stdin)
+  if [[ -n "$src" && "$src" != "bash" && "$src" != "-bash" && "$src" != "/dev/stdin" && -f "$src" ]]; then
+    cd "$(dirname "$src")" && pwd
+    return 0
+  fi
+  # Also handle $0 when not relying on BASH_SOURCE
+  if [[ -n "${0:-}" && "$0" != "bash" && "$0" != "-bash" && "$0" != "sh" && -f "$0" ]]; then
+    cd "$(dirname "$0")" && pwd
+    return 0
+  fi
+
+  info "Detected piped install — downloading ${REPO_OWNER}/${REPO_NAME}@${REPO_REF}…"
+  if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
+    err "curl or wget is required for one-liner install"
+    exit 1
+  fi
+  if ! command -v tar >/dev/null 2>&1; then
+    err "tar is required for one-liner install"
+    exit 1
+  fi
+
+  _TMP_SOURCE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/hyprgrok-src.XXXXXX")"
+  local tarball="$_TMP_SOURCE_DIR/src.tar.gz"
+  local url="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/refs/heads/${REPO_REF}"
+  # Fallback tag-style URL if branch archive fails (handled below)
+  if command -v curl >/dev/null 2>&1; then
+    if ! curl -fsSL "$url" -o "$tarball"; then
+      url="https://codeload.github.com/${REPO_OWNER}/${REPO_NAME}/tar.gz/${REPO_REF}"
+      curl -fsSL "$url" -o "$tarball" || {
+        err "Failed to download source from GitHub ($REPO_OWNER/$REPO_NAME@$REPO_REF)"
+        exit 1
+      }
+    fi
+  else
+    wget -qO "$tarball" "$url" || {
+      err "Failed to download source from GitHub"
+      exit 1
+    }
+  fi
+
+  tar -xzf "$tarball" -C "$_TMP_SOURCE_DIR"
+  # Archive extracts as reponame-ref/ (e.g. hyprgrok-main)
+  local extracted
+  extracted="$(find "$_TMP_SOURCE_DIR" -mindepth 1 -maxdepth 1 -type d ! -name '.*' | head -1)"
+  if [[ -z "$extracted" || ! -d "$extracted/hyprgrok" ]]; then
+    err "Downloaded archive did not contain expected hyprgrok/ package layout"
+    exit 1
+  fi
+  ok "Source ready at $extracted"
+  printf '%s\n' "$extracted"
+}
 
 usage() {
   cat <<EOF
@@ -43,6 +115,11 @@ Options:
   --no-hyprland      Do not modify Hyprland keybinds/window rules
   --force            Overwrite existing user config.toml
   -h, --help         Show this help
+
+Environment (curl | bash):
+  HYPRGROK_REPO_OWNER   default: dcbert
+  HYPRGROK_REPO_NAME    default: hyprgrok
+  HYPRGROK_REPO_REF     default: main
 EOF
 }
 
@@ -278,6 +355,14 @@ main() {
   echo ""
   echo "  HyprGrok v${VERSION} — Grok Build companion for Hyprland"
   echo ""
+
+  SCRIPT_DIR="$(resolve_script_dir)"
+  if [[ ! -d "$SCRIPT_DIR/hyprgrok" || ! -d "$SCRIPT_DIR/ui" ]]; then
+    err "Could not locate HyprGrok source at: $SCRIPT_DIR"
+    err "Run from a clone, or: curl -fsSL https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_REF}/install.sh | bash"
+    exit 1
+  fi
+
   check_deps
   install_files
   configure_hyprland
