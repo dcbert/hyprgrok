@@ -17,7 +17,7 @@ It does **not** call the xAI API itself. It launches, manages, and enhances real
 
 | Feature | Description |
 |---------|-------------|
-| **Glass panel** | Toggleable floating glass UI (`Super + G`) |
+| **Glass panel** | Toggleable floating glass UI (`Super + Space`) |
 | **Quick prompt** | Headless `grok -p` from the panel or CLI |
 | **Full session** | Interactive Grok Build in a ruled terminal |
 | **Desktop context** | Window title/class + cwd + project root |
@@ -86,7 +86,7 @@ hyprgrok-uninstall
 
 | Bind | Action |
 |------|--------|
-| `Super + G` | Toggle glass panel |
+| `Super + Space` | Toggle glass panel |
 | `Super + Shift + G` | Full Grok Build session |
 | `Super + Alt + G` | Print desktop context |
 | `Super + Ctrl + G` | Ask about current window |

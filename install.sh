@@ -262,8 +262,9 @@ write_binds_with_absolute_path() {
   if [[ "$mode" == "lua" ]]; then
     cat > "$out" <<EOF
 -- BEGIN HYPRGROK
--- HyprGrok keybinds (absolute path for reliable Super+G)
-hl.bind("SUPER + G", hl.dsp.exec_cmd("$bin toggle"), { description = "HyprGrok: Toggle panel" })
+-- HyprGrok keybinds (absolute path). Super+Space toggles panel
+-- (Super+G is used by Illogical Impulse "widget overlay").
+hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("$bin toggle"), { description = "HyprGrok: Toggle panel" })
 hl.bind("SUPER + SHIFT + G", hl.dsp.exec_cmd("$bin session"), { description = "HyprGrok: Full Grok Build session" })
 hl.bind("SUPER + ALT + G", hl.dsp.exec_cmd("$bin context"), { description = "HyprGrok: Print desktop context" })
 hl.bind("SUPER + CTRL + G", hl.dsp.exec_cmd("$bin ask-window"), { description = "HyprGrok: Ask about current window" })
@@ -272,8 +273,8 @@ EOF
   else
     cat > "$out" <<EOF
 # BEGIN HYPRGROK
-# HyprGrok keybinds (absolute path for reliable Super+G)
-bind = SUPER, G, exec, $bin toggle
+# HyprGrok keybinds (absolute path). Super+Space toggles panel.
+bind = SUPER, SPACE, exec, $bin toggle
 bind = SUPER SHIFT, G, exec, $bin session
 bind = SUPER ALT, G, exec, $bin context
 bind = SUPER CTRL, G, exec, $bin ask-window
@@ -417,7 +418,7 @@ main() {
 
 ${GRN}Install complete.${RST}
 
-  Toggle panel:     ${CYN}Super + G${RST}
+  Toggle panel:     ${CYN}Super + Space${RST}
   Full session:     ${CYN}Super + Shift + G${RST}
   Ask about window: ${CYN}Super + Ctrl + G${RST}
   CLI:              ${CYN}hyprgrok toggle${RST}

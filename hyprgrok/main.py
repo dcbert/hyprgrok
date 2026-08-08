@@ -69,7 +69,80 @@ def find_browser(preferred: str = "auto") -> str | None:
     return None
 
 
+def _hypr_clients() -> list[dict]:
+    if not shutil.which("hyprctl"):
+        return []
+    try:
+        out = subprocess.run(
+            ["hyprctl", "clients", "-j"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if out.returncode != 0 or not out.stdout.strip():
+        return []
+    try:
+        data = json.loads(out.stdout)
+    except json.JSONDecodeError:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def is_panel_client(client: dict) -> bool:
+    """True only for the HyprGrok glass panel — not Code/kitty with 'HyprGrok' in the title."""
+    title = str(client.get("title") or "").strip()
+    initial = str(client.get("initialTitle") or "").strip()
+    klass = str(client.get("class") or "").lower()
+    initial_class = str(client.get("initialClass") or "").lower()
+
+    # Exact panel title from <title>HyprGrok</title>
+    if title == PANEL_TITLE or initial == PANEL_TITLE:
+        return True
+    # Chromium --class=hyprgrok-panel (if honored)
+    if "hyprgrok-panel" in klass or "hyprgrok-panel" in initial_class:
+        return True
+    # Do NOT match "Preview README.md - HyprGrok - Code" or "…/HyprGrok" terminals
+    return False
+
+
+def find_panel_clients() -> list[dict]:
+    return [c for c in _hypr_clients() if is_panel_client(c)]
+
+
+def focus_panel_window() -> bool:
+    panels = find_panel_clients()
+    if not panels:
+        return False
+    addr = str(panels[0].get("address") or "")
+    if not addr:
+        return False
+    try:
+        subprocess.run(
+            ["hyprctl", "dispatch", "focuswindow", f"address:{addr}"],
+            capture_output=True,
+            timeout=2,
+            check=False,
+        )
+        # Bring to current workspace if needed
+        subprocess.run(
+            ["hyprctl", "dispatch", "alterzorder", "top", f"address:{addr}"],
+            capture_output=True,
+            timeout=2,
+            check=False,
+        )
+        return True
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def open_panel_window(port: int, browser: str | None) -> bool:
+    # If panel already exists, just focus it
+    if find_panel_clients():
+        return focus_panel_window()
+
     url = f"http://127.0.0.1:{port}/"
     profile = CONFIG_DIR / "browser-profile"
     profile.mkdir(parents=True, exist_ok=True)
@@ -77,8 +150,6 @@ def open_panel_window(port: int, browser: str | None) -> bool:
     if browser:
         name = Path(browser).name
         if "firefox" in name:
-            cmd = [browser, "-P", "hyprgrok", "--new-window", url]
-            # Firefox profiles are awkward; fallback to plain new window
             cmd = [browser, "--new-window", url]
         else:
             # Chromium family app window — title comes from page <title>
@@ -98,6 +169,12 @@ def open_panel_window(port: int, browser: str | None) -> bool:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
+            # Wait briefly for window, then focus
+            for _ in range(20):
+                time.sleep(0.1)
+                if find_panel_clients():
+                    focus_panel_window()
+                    break
             return True
         except OSError:
             pass
@@ -117,57 +194,30 @@ def open_panel_window(port: int, browser: str | None) -> bool:
 
 
 def panel_window_open() -> bool:
-    """Best-effort check via hyprctl for a HyprGrok panel window."""
-    if not shutil.which("hyprctl"):
-        return False
-    try:
-        out = subprocess.run(
-            ["hyprctl", "clients", "-j"],
-            capture_output=True,
-            text=True,
-            timeout=2,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return False
-    if out.returncode != 0 or not out.stdout.strip():
-        return False
-    try:
-        clients = json.loads(out.stdout)
-    except json.JSONDecodeError:
-        return False
-    for client in clients:
-        title = str(client.get("title") or "")
-        initial = str(client.get("initialTitle") or "")
-        klass = str(client.get("class") or "")
-        if PANEL_TITLE in title or PANEL_TITLE in initial:
-            return True
-        if __app_name__ in klass.lower() or "hyprgrok" in klass.lower():
-            return True
-    return False
+    """True if the glass panel window is mapped (exact match only)."""
+    return bool(find_panel_clients())
 
 
 def close_panel_window() -> bool:
-    if not shutil.which("hyprctl"):
+    panels = find_panel_clients()
+    if not panels:
         return False
-    # Close by title match
-    try:
-        subprocess.run(
-            ["hyprctl", "dispatch", "closewindow", f"title:^{PANEL_TITLE}$"],
-            capture_output=True,
-            timeout=2,
-            check=False,
-        )
-        # Also try class variants
-        subprocess.run(
-            ["hyprctl", "dispatch", "closewindow", f"class:.*{__app_name__}.*"],
-            capture_output=True,
-            timeout=2,
-            check=False,
-        )
-        return True
-    except (OSError, subprocess.TimeoutExpired):
-        return False
+    ok = False
+    for client in panels:
+        addr = str(client.get("address") or "")
+        if not addr:
+            continue
+        try:
+            subprocess.run(
+                ["hyprctl", "dispatch", "closewindow", f"address:{addr}"],
+                capture_output=True,
+                timeout=2,
+                check=False,
+            )
+            ok = True
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    return ok
 
 
 def ensure_server_running(cfg=None) -> int:
@@ -208,14 +258,32 @@ def cmd_toggle(_args: argparse.Namespace) -> int:
     cfg = load_config()
     browser = find_browser(cfg.panel.browser)
 
-    if is_server_alive() and panel_window_open():
+    # Exact panel window only (not Code/kitty with "HyprGrok" in the title)
+    if panel_window_open():
         close_panel_window()
         return 0
 
-    port = ensure_server_running(cfg)
+    try:
+        port = ensure_server_running(cfg)
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        if shutil.which("notify-send"):
+            subprocess.run(
+                ["notify-send", "--app-name=HyprGrok", "HyprGrok", str(exc)],
+                check=False,
+                capture_output=True,
+            )
+        return 1
+
     if not open_panel_window(port, browser):
-        print(f"Panel server is running at http://127.0.0.1:{port}/", file=sys.stderr)
-        print("Could not open a browser window automatically.", file=sys.stderr)
+        msg = f"Panel server is on http://127.0.0.1:{port}/ but no browser opened"
+        print(msg, file=sys.stderr)
+        if shutil.which("notify-send"):
+            subprocess.run(
+                ["notify-send", "--app-name=HyprGrok", "HyprGrok", msg],
+                check=False,
+                capture_output=True,
+            )
         return 1
     return 0
 

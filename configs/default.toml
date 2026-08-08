@@ -21,7 +21,8 @@ headless_timeout_sec = 300
 
 [keybinds]
 # Hyprland conf syntax (mod, key)
-toggle_panel = "SUPER, G"
+# Super+G is often taken by Illogical Impulse shell overlay — Super+Space is the default.
+toggle_panel = "SUPER, SPACE"
 open_session = "SUPER SHIFT, G"
 quick_context = "SUPER ALT, G"
 

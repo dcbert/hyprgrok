@@ -70,7 +70,8 @@ class LaunchConfig:
 
 @dataclass
 class KeybindConfig:
-    toggle_panel: str = "SUPER, G"
+    # Super+G is taken by Illogical Impulse ("Toggle widget overlay") — use Super+Space
+    toggle_panel: str = "SUPER, SPACE"
     open_session: str = "SUPER SHIFT, G"
     quick_context: str = "SUPER ALT, G"
 
