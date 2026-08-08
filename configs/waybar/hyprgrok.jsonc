@@ -1,0 +1,25 @@
+// Add this module to your Waybar config modules-left/center/right,
+// and merge the custom-hyprgrok object into your root config.
+//
+// Example:
+//   "modules-right": ["custom/hyprgrok", "clock", ...]
+//
+// Then include the custom-hyprgrok block below.
+
+{
+  "custom/hyprgrok": {
+    "exec": "hyprgrok status --waybar",
+    "return-type": "json",
+    "interval": 5,
+    "format": "󰚩 {}",
+    "format-icons": {
+      "idle": "󰚩",
+      "active": "󰚩",
+      "missing": ""
+    },
+    "on-click": "hyprgrok toggle",
+    "on-click-right": "hyprgrok session",
+    "on-click-middle": "hyprgrok ask-window",
+    "tooltip": true
+  }
+}

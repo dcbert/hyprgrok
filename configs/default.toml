@@ -1,0 +1,36 @@
+# HyprGrok default configuration
+# User copy lives at ~/.config/hyprgrok/config.toml
+# HyprGrok never stores xAI API keys — auth stays with official Grok Build.
+
+grok_binary = "grok"
+notify_on_complete = true
+
+[panel]
+position = "right"          # left | right
+width = 420
+height = 720
+opacity = 0.92
+port = 8765
+auto_inject_context = false
+browser = "auto"            # auto | google-chrome-stable | chromium | firefox
+
+[launch]
+terminal = "auto"
+preferred_terminals = ["kitty", "foot", "alacritty", "wezterm", "ghostty", "konsole", "gnome-terminal"]
+headless_timeout_sec = 300
+
+[keybinds]
+# Hyprland conf syntax (mod, key)
+toggle_panel = "SUPER, G"
+open_session = "SUPER SHIFT, G"
+quick_context = "SUPER ALT, G"
+
+[theme]
+accent = "#7aa2f7"
+background = "rgba(20, 22, 30, 0.72)"
+text = "#c0caf5"
+muted = "#565f89"
+success = "#9ece6a"
+error = "#f7768e"
+border = "rgba(122, 162, 247, 0.35)"
+font_family = "Inter, JetBrains Mono, ui-sans-serif, system-ui, sans-serif"

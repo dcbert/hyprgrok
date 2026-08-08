@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "hyprgrok-hyprland": {
+      "command": "hyprgrok",
+      "args": ["hypr", "snapshot"],
+      "description": "Example only — wire a proper MCP server when ACP/MCP tooling is ready. HyprGrok exposes `hyprgrok hypr snapshot|clients|dispatch` for desktop awareness without handling xAI keys."
+    }
+  }
+}

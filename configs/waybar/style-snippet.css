@@ -1,0 +1,13 @@
+/* Optional Waybar styles for HyprGrok */
+#custom-hyprgrok {
+  padding: 0 10px;
+  color: #7aa2f7;
+}
+
+#custom-hyprgrok.active {
+  color: #9ece6a;
+}
+
+#custom-hyprgrok.missing {
+  color: #f7768e;
+}

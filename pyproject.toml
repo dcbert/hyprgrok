@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hyprgrok"
+version = "0.2.0"
+description = "Hyprland companion panel for official Grok Build"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+authors = [{ name = "HyprGrok contributors" }]
+keywords = ["hyprland", "grok", "wayland", "ai", "companion"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: X11 Applications",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Topic :: Desktop Environment",
+]
+dependencies = []
+
+[project.scripts]
+hyprgrok = "hyprgrok.main:main"
+
+[project.urls]
+Homepage = "https://github.com/dcbert/hyprgrok"
+Issues = "https://github.com/dcbert/hyprgrok/issues"
+
+[tool.setuptools.packages.find]
+include = ["hyprgrok*"]
+
+[tool.setuptools.package-data]
+hyprgrok = []
