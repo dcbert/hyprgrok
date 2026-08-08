@@ -17,13 +17,23 @@ HyprGrok only **launches, resumes, and enhances** real `grok` sessions with desk
 
 ## Screenshots
 
-<p align="center">
-  <img src="assets/screenshot-panel.png" alt="HyprGrok glass panel" width="420" />
-</p>
+### Ask tab
 
 <p align="center">
-  <img src="assets/screenshot-panel-in-desktop.png" alt="HyprGrok on the Hyprland desktop" width="900" />
+  <img src="assets/screenshot-panel.png" alt="HyprGrok Ask tab — glass panel" width="380" />
 </p>
+
+### On the Hyprland desktop
+
+<p align="center">
+  <img src="assets/screenshot-panel-in-desktop.png" alt="HyprGrok floating on Hyprland" width="900" />
+</p>
+
+### Sessions &amp; history (official Grok Build store)
+
+| Sessions | History |
+|:---:|:---:|
+| <img src="assets/screenshot-sessions.png" alt="HyprGrok Sessions tab" width="300" /> | <img src="assets/screenshot-history.png" alt="HyprGrok History tab" width="300" /> |
 
 | Control | Purpose |
 |---------|---------|
