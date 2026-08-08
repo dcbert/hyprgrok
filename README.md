@@ -129,6 +129,17 @@ hyprgrok status --waybar
 
 ---
 
+
+## Top bar (Quickshell / Illogical Impulse)
+
+This setup uses **Quickshell**, not Waybar. After install you should see a **robot** icon on the right of the bar:
+
+- **Left-click** — open/close HyprGrok panel  
+- **Right-click** — full Grok session  
+- **Middle-click** — analyze focused window  
+
+See [docs/QUICKSHELL.md](docs/QUICKSHELL.md). For plain Waybar, use `configs/waybar/hyprgrok.jsonc`.
+
 ## Architecture
 
 ```

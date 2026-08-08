@@ -340,6 +340,39 @@ configure_hyprland() {
   fi
 }
 
+
+install_quickshell_module() {
+  local qs_ii="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/ii"
+  local src="$SCRIPT_DIR/configs/quickshell/ii/bar/HyprGrokButton.qml"
+  [[ -f "$src" ]] || return 0
+  if [[ ! -d "$qs_ii/modules/ii/bar" ]]; then
+    return 0
+  fi
+  info "Installing Quickshell bar module (Illogical Impulse)…"
+  install -m 644 "$src" "$qs_ii/modules/ii/bar/HyprGrokButton.qml"
+  # Wire into BarContent if not already present
+  local bar_content="$qs_ii/modules/ii/bar/BarContent.qml"
+  if [[ -f "$bar_content" ]] && ! grep -q 'HyprGrokButton' "$bar_content"; then
+    warn "BarContent.qml has no HyprGrokButton yet — see docs/QUICKSHELL.md to wire it"
+  else
+    ok "Quickshell HyprGrok module installed"
+  fi
+  # Enable in user config
+  local cfg="${XDG_CONFIG_HOME:-$HOME/.config}/illogical-impulse/config.json"
+  if [[ -f "$cfg" ]] && command -v python3 >/dev/null; then
+    python3 - <<'PY2'
+import json
+from pathlib import Path
+import os
+p = Path(os.path.expanduser("~/.config/illogical-impulse/config.json"))
+if p.is_file():
+    data = json.loads(p.read_text())
+    data.setdefault("bar", {}).setdefault("utilButtons", {})["showHyprGrok"] = True
+    p.write_text(json.dumps(data, indent=2) + "\n")
+PY2
+  fi
+}
+
 path_hint() {
   case ":$PATH:" in
     *":$BIN_DIR:"*) ok "$BIN_DIR is on PATH" ;;
@@ -366,6 +399,7 @@ main() {
   check_deps
   install_files
   configure_hyprland
+  install_quickshell_module
   path_hint
 
   # Ensure PATH for this session smoke test
