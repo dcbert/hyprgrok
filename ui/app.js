@@ -569,22 +569,44 @@ async function refreshHistory() {
   }
 }
 
+function activateTab(name) {
+  if (!name) return;
+  document.querySelectorAll(".tab").forEach((t) => {
+    const on = t.getAttribute("data-tab") === name;
+    t.classList.toggle("active", on);
+    t.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+  $(`panel-${name}`)?.classList.add("active");
+  if (name === "sessions") refreshSessions();
+  if (name === "history") refreshHistory();
+  if (name === "ask") {
+    /* keep ask visible */
+  }
+}
+
 // Tabs
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach((t) => {
-      t.classList.remove("active");
-      t.setAttribute("aria-selected", "false");
-    });
-    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-    tab.classList.add("active");
-    tab.setAttribute("aria-selected", "true");
     const name = tab.getAttribute("data-tab");
-    $(`panel-${name}`)?.classList.add("active");
-    if (name === "sessions") refreshSessions();
-    if (name === "history") refreshHistory();
+    activateTab(name);
+    try {
+      if (name && name !== "ask") history.replaceState(null, "", `#${name}`);
+      else history.replaceState(null, "", location.pathname || "/");
+    } catch (_) {
+      /* ignore */
+    }
   });
 });
+
+// Deep-link: /#sessions /#history (useful for screenshots & bookmarks)
+(() => {
+  const hash = (location.hash || "").replace(/^#/, "").toLowerCase();
+  if (hash === "sessions" || hash === "history" || hash === "ask") {
+    // Wait a tick so lists can load after init
+    setTimeout(() => activateTab(hash), 50);
+  }
+})();
 
 els.sendBtn.addEventListener("click", sendPrompt);
 els.sessionBtn.addEventListener("click", openSession);
