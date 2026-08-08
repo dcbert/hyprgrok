@@ -15,91 +15,153 @@
         <div class="logo" aria-hidden="true">✦</div>
         <div>
           <h1>HyprGrok</h1>
-          <p class="tagline">Grok Build, made for Hyprland</p>
+          <p class="tagline">Companion panel for official Grok Build on Hyprland</p>
         </div>
       </div>
-      <div class="status-pill" id="statusPill" title="Status">…</div>
+      <div class="status-pill" id="statusPill" title="Whether the official grok CLI is available">Checking…</div>
     </header>
 
-    <nav class="tabs" role="tablist">
-      <button type="button" class="tab active" data-tab="ask" role="tab">Ask</button>
-      <button type="button" class="tab" data-tab="sessions" role="tab">Sessions</button>
-      <button type="button" class="tab" data-tab="history" role="tab">History</button>
+    <p class="intro" id="introLine">
+      Ask a quick question here, or open a full interactive Grok Build session in a terminal.
+      Everything uses your real <code>grok</code> install — this panel never stores API keys.
+    </p>
+
+    <nav class="tabs" role="tablist" aria-label="Main sections">
+      <button type="button" class="tab active" data-tab="ask" role="tab" aria-selected="true"
+        title="Write a prompt and get an answer, or launch a full session">
+        <span class="tab-title">Ask</span>
+        <span class="tab-sub">Prompt &amp; answer</span>
+      </button>
+      <button type="button" class="tab" data-tab="sessions" role="tab" aria-selected="false"
+        title="See past quick asks and interactive Grok sessions started from this panel">
+        <span class="tab-title">Sessions</span>
+        <span class="tab-sub">Activity log</span>
+      </button>
+      <button type="button" class="tab" data-tab="history" role="tab" aria-selected="false"
+        title="Reuse prompts you sent before">
+        <span class="tab-title">History</span>
+        <span class="tab-sub">Past prompts</span>
+      </button>
     </nav>
 
-    <section class="tab-panel active" id="panel-ask">
+    <!-- ─── Ask ─── -->
+    <section class="tab-panel active" id="panel-ask" role="tabpanel">
       <section class="context-card" id="contextCard">
         <div class="context-head">
-          <span>Desktop context</span>
-          <button type="button" class="ghost" id="refreshContext" title="Refresh">↻</button>
+          <div>
+            <span class="section-title">What you’re focused on</span>
+            <p class="section-hint">Detected from Hyprland (active window &amp; folder). Optionally attached to your question.</p>
+          </div>
+          <button type="button" class="ghost" id="refreshContext" title="Refresh: re-read the active window and project folder">Refresh</button>
         </div>
         <div class="context-body" id="contextBody">
-          <div class="muted">Loading…</div>
+          <div class="muted">Reading desktop…</div>
         </div>
+        <p class="cwd-line" id="cwdLabel"></p>
       </section>
 
       <section class="prompt-card">
-        <label class="sr-only" for="prompt">Prompt</label>
+        <div class="field-label-row">
+          <label class="field-label" for="prompt">Your question</label>
+          <span class="kbd-hint">Ctrl+Enter to send quick answer</span>
+        </div>
         <textarea
           id="prompt"
-          rows="5"
-          placeholder="Ask Grok Build anything…&#10;Ctrl+Enter to send"
+          rows="4"
+          placeholder="e.g. Explain this project structure&#10;e.g. Fix the TypeError in the focused file&#10;e.g. Summarize what I should do next"
           autofocus
         ></textarea>
-        <div class="row options">
-          <label class="check">
+
+        <div class="options-block">
+          <p class="options-heading">When you send a quick answer, also include…</p>
+          <label class="check" title="Prepends the active window title, class, folder, and project to your prompt so Grok understands your desktop focus.">
             <input type="checkbox" id="injectContext" />
-            <span>Add desktop context</span>
+            <span class="check-text">
+              <span class="check-title">Desktop context</span>
+              <span class="check-desc">Window title, class, and project folder from above</span>
+            </span>
           </label>
-          <label class="check">
+          <label class="check" title="Captures the focused window with grim and mentions the image path in the prompt (Grok can use local tools to open it if available).">
             <input type="checkbox" id="includeShot" />
-            <span>Screenshot</span>
+            <span class="check-text">
+              <span class="check-title">Window screenshot</span>
+              <span class="check-desc">Snapshot of the focused window (via grim)</span>
+            </span>
           </label>
         </div>
-        <div class="row actions">
-          <button type="button" class="primary" id="sendBtn">
-            <span class="btn-label">Send to Grok</span>
-            <span class="spinner hidden" id="sendSpinner"></span>
+
+        <div class="action-stack">
+          <button type="button" class="primary action-btn" id="sendBtn"
+            title="Runs a single-turn headless request: grok -p. The reply appears below in this panel.">
+            <span class="btn-main">
+              <span class="btn-label">Get quick answer</span>
+              <span class="spinner hidden" id="sendSpinner"></span>
+            </span>
+            <span class="btn-desc">One-shot reply here · uses <code>grok -p</code></span>
           </button>
-          <button type="button" class="secondary" id="sessionBtn">Full session</button>
-        </div>
-        <div class="row actions secondary-actions">
-          <button type="button" class="secondary wide" id="askWindowBtn">Ask about current window</button>
+
+          <button type="button" class="secondary action-btn" id="sessionBtn"
+            title="Opens an interactive Grok Build TUI in your terminal (kitty/foot/…), preferably in the detected project folder.">
+            <span class="btn-main"><span class="btn-label">Open full Grok session</span></span>
+            <span class="btn-desc">Interactive terminal TUI · keep chatting &amp; using tools</span>
+          </button>
+
+          <button type="button" class="secondary action-btn" id="askWindowBtn"
+            title="Captures the focused window (title, path, optional screenshot) and asks Grok to analyze it. Extra notes in the box above are included.">
+            <span class="btn-main"><span class="btn-label">Analyze focused window</span></span>
+            <span class="btn-desc">Auto-builds a rich prompt from what you’re looking at</span>
+          </button>
         </div>
       </section>
 
       <section class="response-card">
         <div class="response-head">
-          <span>Response</span>
-          <button type="button" class="ghost" id="clearResponse" title="Clear">Clear</button>
+          <div>
+            <span class="section-title">Grok’s answer</span>
+            <p class="section-hint" id="responseHint">Shows up after a quick answer or window analysis. Full sessions open in a separate terminal.</p>
+          </div>
+          <button type="button" class="ghost" id="clearResponse" title="Clear the answer area">Clear</button>
         </div>
-        <pre id="response" class="response-body muted">Send a prompt or open a full Grok Build session.</pre>
+        <pre id="response" class="response-body muted empty-state"></pre>
       </section>
     </section>
 
-    <section class="tab-panel" id="panel-sessions">
+    <!-- ─── Sessions ─── -->
+    <section class="tab-panel" id="panel-sessions" role="tabpanel">
       <div class="list-card">
         <div class="list-head">
-          <span>Sessions</span>
-          <button type="button" class="ghost" id="refreshSessions">↻</button>
+          <div>
+            <span class="section-title">Your Grok activity</span>
+            <p class="section-hint">Quick answers and full sessions started from HyprGrok. Click a finished answer to reopen it.</p>
+          </div>
+          <button type="button" class="ghost" id="refreshSessions" title="Refresh the list">Refresh</button>
+        </div>
+        <div class="legend">
+          <span><span class="badge running">running</span> still active</span>
+          <span><span class="badge completed">completed</span> finished</span>
+          <span><span class="badge failed">failed</span> error</span>
         </div>
         <div id="sessionsList" class="list-body muted">Loading…</div>
       </div>
     </section>
 
-    <section class="tab-panel" id="panel-history">
+    <!-- ─── History ─── -->
+    <section class="tab-panel" id="panel-history" role="tabpanel">
       <div class="list-card">
         <div class="list-head">
-          <span>Recent prompts</span>
-          <button type="button" class="ghost" id="refreshHistory">↻</button>
+          <div>
+            <span class="section-title">Prompt history</span>
+            <p class="section-hint">Click any line to put it back in the Ask box so you can edit and send again.</p>
+          </div>
+          <button type="button" class="ghost" id="refreshHistory" title="Refresh history">Refresh</button>
         </div>
         <div id="historyList" class="list-body muted">Loading…</div>
       </div>
     </section>
 
     <footer class="foot">
-      <span id="cwdLabel" class="muted"></span>
-      <span class="muted">official <code>grok</code> · v<span id="verLabel">0.2</span></span>
+      <span class="muted" id="footHint">Uses official <code>grok</code> only</span>
+      <span class="muted">v<span id="verLabel">0.2</span> · Super+G toggles panel</span>
     </footer>
   </div>
 
